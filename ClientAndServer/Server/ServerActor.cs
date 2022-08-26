@@ -1,4 +1,5 @@
 ﻿using Akka.Actor;
+using Akka.Event;
 using RemoteAndClusters.ClientAndServer.Messages;
 using System;
 using System.Collections.Generic;
@@ -8,35 +9,48 @@ using System.Threading.Tasks;
 
 namespace RemoteAndClusters.ClientAndServer.Server
 {
-    public class ServerActor : ReceiveActor
+    public class ServerActor : DiligentActor
     {
+        private ILoggingAdapter _log = Logging.GetLogger(Context);
+
         public static Props PropsFactory()
         {
             return Props.Create(() => new ServerActor());
         }
 
-        private List<IActorRef> Subscriptions { get; set; }
+        private List<IActorRef> Subscriptions { get; set; } = new List<IActorRef> { };
         
-        public ServerActor()
+        public ServerActor() { }
+
+        public override void Run()
         {
-            HandleSubscriptions();
-            HandleEvents();
+            Become(() =>
+            {
+                HandleSubscriptions();
+                HandleEvents();
+            });
+
+            _log.Info("Running...");
         }
 
         public void HandleSubscriptions()
         {
             Receive<SubscribeMessage>((msg) =>
             {
-                if (!Subscriptions.Contains(Sender))
-                    Subscriptions.Add(Sender);
+                _log.Info($"Subscribing {msg.WhoSubscribe} (as asked by {Sender})");
 
-                Sender.Tell(new ConfirmSubscribeMessage());
+                if (!Subscriptions.Contains(msg.WhoSubscribe))
+                    Subscriptions.Add(msg.WhoSubscribe);
+
+                Sender.Tell(new ConfirmSubscribeMessage(), Self);
             });
 
             Receive<UnsubscribeMessage>((msg) =>
             {
-                Subscriptions.Remove(Sender);
-                Sender.Tell(new ConfirmUnsubscribeMessage());
+                _log.Info($"Un-subscribing {msg.WhoUnsubscribe} (as asked by {Sender})");
+
+                Subscriptions.Remove(msg.WhoUnsubscribe);
+                Sender.Tell(new ConfirmUnsubscribeMessage(), Self);
             });
         }
 
@@ -44,11 +58,13 @@ namespace RemoteAndClusters.ClientAndServer.Server
         {
             Receive<EventMessage>((eventMessage) =>
             {
+                _log.Info($"{Sender} told me to notify everyone about {eventMessage}");
+
                 NotifyMessage notifyMessage = new NotifyMessage(eventMessage);
                 
                 foreach(IActorRef subcribed in Subscriptions)
                 {
-                    subcribed.Tell(notifyMessage);
+                    subcribed.Tell(notifyMessage, Self);
                 }
             });
         }

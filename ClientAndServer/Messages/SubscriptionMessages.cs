@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Akka.Actor;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,12 +9,23 @@ namespace RemoteAndClusters.ClientAndServer.Messages
 {
     public class SubscribeMessage
     {
+        public IActorRef WhoSubscribe { get; private set; }
+
+        public SubscribeMessage(IActorRef actorRef)
+        {
+            WhoSubscribe = actorRef;
+        }
 
     }
 
     public class UnsubscribeMessage
     {
+        public IActorRef WhoUnsubscribe { get; private set; }
 
+        public UnsubscribeMessage(IActorRef actorRef)
+        {
+            WhoUnsubscribe = actorRef;
+        }
     }
 
     public class ConfirmMessage

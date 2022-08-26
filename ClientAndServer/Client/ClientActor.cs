@@ -1,4 +1,5 @@
 ﻿using Akka.Actor;
+using Akka.Event;
 using RemoteAndClusters.ClientAndServer.Messages;
 using System;
 using System.Collections.Generic;
@@ -8,8 +9,10 @@ using System.Threading.Tasks;
 
 namespace RemoteAndClusters.ClientAndServer.Client
 {
-    public class ClientActor : ReceiveActor
+    public class ClientActor : DiligentActor
     {
+        private ILoggingAdapter _log = Logging.GetLogger(Context);
+
         public static Props PropsFactory(ClientStrategy strategy)
         {
             return Props.Create(() => new ClientActor(strategy));
@@ -21,11 +24,19 @@ namespace RemoteAndClusters.ClientAndServer.Client
         
         public ClientActor(ClientStrategy strategy) 
         {
-            ReceiveNotificationsBehaviour();
-
             Strategy = strategy;
             Strategy.Actor = this;
-            Strategy.Run();
+        }
+
+        public override void Run()
+        {
+            Become(() =>
+            {
+                ReceiveNotificationsBehaviour();
+                Strategy.Run();
+            });
+
+            _log.Info("Running...");
         }
 
         protected void ReceiveNotificationsBehaviour()
@@ -33,40 +44,44 @@ namespace RemoteAndClusters.ClientAndServer.Client
             Receive<NotifyMessage>(msg => OnNotify(msg, Sender));
         }
 
-        protected virtual void OnNotify(NotifyMessage notify, IActorRef sender)
+        protected void OnNotify(NotifyMessage notify, IActorRef sender)
         {
-            Console.WriteLine($"Received notification form {sender} about event {notify.Event}.");
+            _log.Info($"Received notification form {sender} about event {notify.Event}.");
         }
         
-        public Task Subscribe(IActorRef server)
+        public Task<Object> Subscribe(IActorRef server)
         {
-            Console.WriteLine($"Subscribing to server {server}");
-
-            return server.Ask(new SubscribeMessage()).ContinueWith(confirm =>
+            _log.Info($"Subscribing to server {server}");
+            return server.Ask(new SubscribeMessage(Self)).ContinueWith(confirm =>
             {
-                if (confirm is ConfirmSubscribeMessage)
+                if (!(confirm.Result is ConfirmSubscribeMessage))
                 {
-                    Console.WriteLine($"Subscription to server {server} completed successfully!");
-                    return confirm;
-                }
+                    _log.Error($"Error while subscribing to server {server}. " +
+                        $"Expected {typeof(ConfirmSubscribeMessage)} but received " +
+                        $"{confirm.Result.GetType()}");
+                    return confirm.Result;
+                } 
 
-                Console.Error.WriteLine($"Error while subscribing to server {server}!");
-                return confirm;
+                _log.Info($"Subscription to server {server} completed successfully!");
+                return confirm.Result;
             });
         }
 
-        public void Unsubscribe(IActorRef server)
+        public Task<Object> Unsubscribe(IActorRef server)
         {
-            Console.WriteLine($"Unsubscribing from server {server}");
-            server.Ask(new SubscribeMessage()).ContinueWith(confirm =>
+            _log.Info($"Unsubscribing from server {server}");
+            return server.Ask(new UnsubscribeMessage(Self)).ContinueWith(confirm =>
             {
-                if (confirm is ConfirmUnsubscribeMessage)
+                if (!(confirm.Result is ConfirmUnsubscribeMessage))
                 {
-                    Console.WriteLine($"Un-subscription from server {server} completed successfully!");
-                    return;
+                    _log.Error($"Error while unsubscribing to server {server}. " +
+                        $"Expected {typeof(ConfirmUnsubscribeMessage)} but received " +
+                        $"{confirm.GetType()}");
+                    return confirm.Result;
                 }
 
-                Console.Error.WriteLine($"Error while unsubscribing from server {server}!");
+                _log.Info($"Un-subscription from server {server} completed successfully!");
+                return confirm.Result;
             });
         }
     }

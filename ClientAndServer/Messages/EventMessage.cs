@@ -15,6 +15,7 @@ namespace RemoteAndClusters.ClientAndServer.Messages
         public EventMessage(IActorRef? EventCreator, int EventId)
         {
             this.EventCreator = EventCreator;
+            this.EventId = EventId;
         }
 
         public override string ToString()

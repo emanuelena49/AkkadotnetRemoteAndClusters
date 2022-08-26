@@ -37,12 +37,12 @@ namespace RemoteAndClusters.ClientAndServer.Client
             foreach (IActorRef server in pendingSubscriptions)
             {
                 // try to subscribe to any server
-                Actor.Subscribe(server).ContinueWith(msg =>
+                Actor.Subscribe(server).ContinueWith(task =>
                 {
                     pendingSubscriptions.Remove(server);
                     
                     // check if subscription has gone well or not
-                    if (msg is ConfirmSubscribeMessage)
+                    if (task.Result is ConfirmSubscribeMessage)
                     {
                         activeSubscriptions.Add(server);
                     } else
@@ -74,6 +74,7 @@ namespace RemoteAndClusters.ClientAndServer.Client
         private async void RunEvents()
         {
             int eventId = 0;
+
             foreach (int timeToWait in PausesBeforeEvents)
             {
                 // wait some time before publishing the next event
