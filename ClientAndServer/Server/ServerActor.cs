@@ -10,7 +10,12 @@ namespace RemoteAndClusters.ClientAndServer.Server
 {
     public class ServerActor : ReceiveActor
     {
-        private List<IActorRef> Subscriptions { get; set; };
+        public static Props PropsFactory()
+        {
+            return Props.Create(() => new ServerActor());
+        }
+
+        private List<IActorRef> Subscriptions { get; set; }
         
         public ServerActor()
         {

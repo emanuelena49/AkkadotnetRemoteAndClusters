@@ -10,6 +10,11 @@ namespace RemoteAndClusters.ClientAndServer.Client
 {
     public class ClientActor : ReceiveActor
     {
+        public static Props PropsFactory(ClientStrategy strategy)
+        {
+            return Props.Create(() => new ClientActor(strategy));
+        }
+        
         public ClientStrategy Strategy { get; set; }
 
         public IActorRef GetRef() => Self;
